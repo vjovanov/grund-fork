@@ -1,5 +1,6 @@
 //! The controlled-English sentence front end (§FS-rules.2–4, §AR-rules.2).
 
+mod conjunction;
 mod count;
 mod recovery;
 mod selectors;
@@ -8,6 +9,7 @@ mod targets;
 
 use super::RuleAnchor;
 use crate::grammar::Grammar;
+use conjunction::conjunction_forms;
 use count::{CountSpelling, count_prefix, positive};
 use std::collections::{BTreeMap, BTreeSet};
 use subjects::{parse_subject, split_modality};
@@ -181,11 +183,6 @@ pub(crate) fn parse_rule(
                 "quantifier \"a\" is ambiguous; accepted forms: \"Each FS must cite at least one GOAL.\" or \"Each FS must cite exactly one GOAL.\"",
             ));
         }
-        "Each FS must cite at least one GOAL and must not cite any AR." => {
-            return Err(error(
-                "conjunctions are not accepted; accepted forms: \"Each FS must cite at least one GOAL.\" and \"Each FS must not cite any AR.\"",
-            ));
-        }
         _ => {}
     }
     if !title.ends_with('.') {
@@ -214,6 +211,12 @@ pub(crate) fn parse_rule(
         ));
     }
     let sentence = &title[..title.len() - 1];
+    // §FS-rules.3.5.4: clauses joined by `and` are refused before any subject is read.
+    if let Some(forms) = conjunction_forms(sentence) {
+        return Err(error(format!(
+            "conjunctions are not accepted; accepted forms: {forms}"
+        )));
+    }
     // §FS-rules.3.6: the subject ends at the modality found first in a fixed order.
     let Some((subject_text, level, polarity, predicate)) = split_modality(sentence) else {
         return Err(error(if sentence.contains(" may not ") {
