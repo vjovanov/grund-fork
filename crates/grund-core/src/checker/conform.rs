@@ -4,6 +4,7 @@
 
 use std::path::Path;
 
+use super::glob_citations::check_glob_citations;
 use super::homes::{KindHomeIndex, paths_same_location_key};
 use super::inline_style::check_inline_citation_style;
 use super::near_miss::check_declaration_near_misses;
@@ -46,6 +47,8 @@ pub(crate) fn conform(
     // §FS-declarations.checks.declaration-near-miss: headings that open like a declaration and
     // parse as none.
     check_declaration_near_misses(catalog, &mut report);
+    // §FS-check.checks.glob-citation: patterns written where a citation belongs.
+    check_glob_citations(catalog, schema, &mut report);
     report
 }
 

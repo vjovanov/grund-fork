@@ -40,6 +40,7 @@ mod agents;
 mod chapter_rules;
 mod citations;
 mod conform;
+mod glob_citations;
 mod grounding;
 mod homes;
 mod index;
