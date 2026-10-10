@@ -199,9 +199,10 @@ use crate::model::{Catalog, CheckReport, Diagnostic, Expected, TextOverlays};
 /// editor's overlay text first and the disk second, as the scanner does, so the
 /// verdict is the one a save would give (§FS-declarations.checks.broken-stub.1),
 /// and it reads that text as the scanner does too: in a Markdown target, fence
-/// delimiter lines and every line while a fence is open are skipped through the
-/// scanner's own fence reader (§AR-scanner.2.3.3), so a fenced example heading of
-/// the ID is not its declaration (§FS-declarations.checks.broken-stub.2). Either
+/// delimiter lines, every line while a fence is open and every line of a raw-text
+/// HTML block are skipped through the scanner's own reader (§AR-scanner.2.3.3), so
+/// an example heading of the ID shown in either is not its declaration
+/// (§FS-declarations.checks.broken-stub.2). Either
 /// failure → one error at the stub site. The target's text is read after the scan
 /// (§AR-checker.placement), not taken from `findings`. The reading is the scanner's
 /// (§AR-scanner.4.6), so the stub this rule accepts is the stub the count of homes

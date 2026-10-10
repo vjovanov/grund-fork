@@ -35,7 +35,8 @@ use crate::resolver::target_records;
 /// (§FS-declarations.checks.broken-stub.1) of a file the scan reads, so it reaches
 /// this only where that line test finds a declaration the scanner's pass does not
 /// record. The two read fences alike (§FS-declarations.checks.broken-stub.2): a
-/// heading inside a fenced block of a Markdown target declares nothing to either.
+/// heading inside a fenced block or a raw-text HTML block of a Markdown target
+/// declares nothing to either.
 pub(super) fn stub_home<'a>(
     config: &Config,
     path_config: &Config,

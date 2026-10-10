@@ -14,7 +14,7 @@ use super::tree::overlay_text;
 use super::walk_boundaries::is_scannable;
 use crate::config::{Frame, Schema};
 use crate::grammar::{
-    PythonDocstringScanState, STUB_LINK_HEADING, declaration_id_on_line, markdown_fence_delimiter,
+    MarkdownBlocks, PythonDocstringScanState, STUB_LINK_HEADING, declaration_id_on_line,
     source_scan_line,
 };
 use crate::model::{
@@ -73,9 +73,9 @@ fn target_text<'a>(path: &Path, overlays: &'a TextOverlays) -> std::io::Result<C
 /// §AR-scanner.4.6): each is a home, so a target that declares the ID twice is two
 /// (§FS-declarations.checks.duplicate.1). The broken-stub rule asks only for the
 /// first. A Markdown `text` is read the way the scan reads it: fence delimiter
-/// lines and every line inside a fence are skipped first (§AR-scanner.2.3.3), so a
-/// heading shown there as an example declares nothing
-/// (§FS-declarations.checks.broken-stub.2).
+/// lines, every line inside a fence and every line of a raw-text HTML block are
+/// skipped first (§AR-scanner.2.3.3, §FS-check.1.1.5.1), so a heading shown there
+/// as an example declares nothing (§FS-declarations.checks.broken-stub.2).
 fn inline_home_lines<'a>(
     text: &'a str,
     path: &Path,
@@ -86,12 +86,11 @@ fn inline_home_lines<'a>(
     let is_md = path.extension().and_then(|e| e.to_str()) == Some("md");
     let is_py = path.extension().and_then(|e| e.to_str()) == Some("py");
     let mut py_docstring = PythonDocstringScanState::default();
-    let mut markdown_fence = None;
+    let mut markdown_blocks = MarkdownBlocks::default();
     text.lines().enumerate().filter_map(move |(index, line)| {
-        if is_md && markdown_fence_delimiter(&mut markdown_fence, line) {
-            return None;
-        }
-        if markdown_fence.is_some() {
+        // §FS-declarations.checks.broken-stub.2: a heading inside a fence or a
+        // raw-text HTML block declares nothing (§FS-check.1.1.5.1).
+        if is_md && !markdown_blocks.line(line).may_be_heading() {
             return None;
         }
         let scan = source_scan_line(
