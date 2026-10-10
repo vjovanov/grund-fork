@@ -424,6 +424,49 @@ In the same repository `The requirements chapter of each FS` and
 correct these reasons in place is
 [§DF-rule-refusal-reasons](../decisions/functional/DF-rule-refusal-reasons.md#df-rule-refusal-reasons-a-chapter-path-is-refused-for-the-component-that-failed-corrected-in-place).
 
+#### 3.5.4 Any clauses joined by `and` are refused as a conjunction
+
+The table's conjunction row is one instance of a general refusal, not the only
+sentence it covers: one sentence states one rule ([§FS-rules.3](FS-rules.md#3-the-five-sentence-families)), so a predicate
+that joins clauses is refused as a conjunction, whatever its subject, counts
+and kinds. A sentence is a conjunction when it contains ` and ` immediately
+followed by a modality word, `must ` or `should `. Every such ` and ` ends one
+clause and starts the next, which begins with its own modality. No accepted
+sentence contains one: a chapter `NAME` is a single token and an object joins
+its kinds with ` or `, so `The and chapter of each FS must cite at least one
+FS.` stays a sentence.
+
+The reason is `conjunctions are not accepted; accepted forms: ` followed by one
+quoted sentence per clause, two joined as `"A." and "B."` and more as `"A.",
+"B.", and "C."`. The first is the first clause; each later one is the first
+clause's subject, read by [§FS-rules.3.6](FS-rules.md#36-where-a-sentences-subject-ends), followed by that clause. Every clause
+is written as it was typed and ends in `.`: the rewrite repairs the
+conjunction and nothing else, so a clause that also breaks another production
+is refused for that production when it is checked on its own.
+
+The check runs after the terminal `.` and the fixed-word and phase-1 subject
+refusals of the table, which are read from the sentence's start, and before
+the modality split of [§FS-rules.3.6](FS-rules.md#36-where-a-sentences-subject-ends). So the subject is never read from a
+fragment, and no refusal names part of a sentence as a kind. Both rule surfaces
+carry the same reason: `check --rule` prints `error: <reason>`, writes nothing
+to stdout and exits 2 ([§FS-rules.4](FS-rules.md#4-validation-lifecycle)), and a configured rule declaration's
+finding is `<RULE-ID> is not a valid rule: <reason>` ([§FS-rules.7.1](FS-rules.md#71-invalid-rule)).
+
+In a repository whose one kind is `FS`, these are the exact reasons:
+
+| Refused sentence | Exact reason |
+|---|---|
+| `Each FS must cite at least one FS and must not cite any FS.` | `conjunctions are not accepted; accepted forms: "Each FS must cite at least one FS." and "Each FS must not cite any FS."` |
+| `Each FS must cite exactly one FS and must not cite any FS.` | `conjunctions are not accepted; accepted forms: "Each FS must cite exactly one FS." and "Each FS must not cite any FS."` |
+| `Each FS must cite at least one FS and must cite at most one FS.` | `conjunctions are not accepted; accepted forms: "Each FS must cite at least one FS." and "Each FS must cite at most one FS."` |
+| `Each FS must not cite any FS and must cite at least one FS.` | `conjunctions are not accepted; accepted forms: "Each FS must not cite any FS." and "Each FS must cite at least one FS."` |
+| `The requirements chapter of each FS must cite at least one FS and should not cite any FS.` | `conjunctions are not accepted; accepted forms: "The requirements chapter of each FS must cite at least one FS." and "The requirements chapter of each FS should not cite any FS."` |
+| `Each FS must cite at least one FS and must not cite any FS and should cite at most 2 FS.` | `conjunctions are not accepted; accepted forms: "Each FS must cite at least one FS.", "Each FS must not cite any FS.", and "Each FS should cite at most 2 FS."` |
+
+The third row's second clause spells a ceiling of one as a word, which
+[§FS-rules.3](FS-rules.md#3-the-five-sentence-families) refuses; it is still answered as a conjunction, because the
+conjunction is the first production the sentence fails.
+
 ### 3.6 Where a sentence's subject ends
 
 A sentence's subject is the text before its modality. The modality is found in
