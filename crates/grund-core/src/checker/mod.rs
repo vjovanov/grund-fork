@@ -38,6 +38,7 @@
 
 mod agents;
 mod chapter_rules;
+mod citation_prohibitions;
 mod citations;
 mod conform;
 mod grounding;

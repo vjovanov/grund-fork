@@ -31,6 +31,8 @@ pub(crate) struct WorkspaceCheckTarget<'a> {
     pub(crate) schema: &'a Schema,
     pub(crate) compiled: &'a Compiled,
     pub(crate) run: &'a Run,
+    /// The format version that spelled the target's file (§FS-config.5).
+    pub(crate) version: u32,
 }
 
 impl<'a> WorkspaceCheckTarget<'a> {
@@ -41,6 +43,7 @@ impl<'a> WorkspaceCheckTarget<'a> {
             schema,
             compiled: frame.compiled,
             run: frame.run,
+            version: frame.version,
         }
     }
 
@@ -53,6 +56,7 @@ impl<'a> WorkspaceCheckTarget<'a> {
             compiled: self.compiled,
             name: None,
             alias: None,
+            version: self.version,
             display: Display {
                 root: &self.run.root,
                 cli_base: &self.run.cli_base,
