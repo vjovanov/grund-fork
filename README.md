@@ -1,3 +1,5 @@
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo/grund-logo-dark.png"><img alt="grund: a section sign drawn as a dry brush stroke" src="docs/assets/logo/grund-logo-light.png" width="220"></picture></p>
+
 # grund
 
 [![CI](https://github.com/agent-grounds/grund/actions/workflows/ci.yml/badge.svg)](https://github.com/agent-grounds/grund/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/grund.svg)](https://crates.io/crates/grund) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
