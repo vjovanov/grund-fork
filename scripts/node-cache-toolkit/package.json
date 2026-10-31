@@ -1,0 +1,5 @@
+{
+  "name": "grund-1122-isolated-cache-measurement",
+  "private": true,
+  "dependencies": {"@actions/cache": "5.1.0"}
+}

@@ -70,12 +70,12 @@ jobs:
     if: inputs.node-cache-experiment == ''
     uses: ./.github/workflows/bench-nightly.yml
 
-  # §AR-ci.requirements.1.verification: no production events or cache publication.
+  # §AR-ci.requirements.1.verification: isolated fork/ref service transactions and exact cleanup.
   node-cache-experiment:
     if: inputs.node-cache-experiment != '' && github.repository == 'vjovanov/grund-fork'
     permissions:
       contents: read
-      actions: read
+      actions: write
     uses: ./.github/workflows/node-cache-measure.yml
     with:
       configuration: ${{ inputs.node-cache-experiment }}
