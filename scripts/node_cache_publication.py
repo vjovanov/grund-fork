@@ -16,7 +16,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import tomllib
 
 
 def cargo(checkout, *arguments):
@@ -34,25 +33,86 @@ def owner(target):
     if (not checkout.is_absolute() or checkout.resolve() != checkout
             or hashlib.sha256(os.fsencode(checkout)).hexdigest()[:16] != target.name):
         raise ValueError(f"unrecognized checkout ownership: {target}")
-    metadata = json.loads(cargo(checkout, "metadata", "--no-deps", "--format-version", "1"))
+    host = subprocess.run(["rustc", "-vV"], capture_output=True, text=True, check=True)
+    triple = next(line.removeprefix("host: ") for line in host.stdout.splitlines()
+                  if line.startswith("host: "))
+    metadata = json.loads(cargo(checkout, "metadata", "--format-version", "1",
+                                "--filter-platform", triple))
     members = set(metadata["workspace_members"])
-    workspace = {p["name"] for p in metadata["packages"] if p["id"] in members}
-    if not workspace:
+    if not members:
         raise ValueError(f"no workspace packages: {checkout}")
-    # Reading the lock avoids fetching manifests for unbuilt foreign-platform
-    # dependencies merely to prepare an offline optimization.
-    lock = tomllib.loads((checkout / "Cargo.lock").read_text(encoding="utf-8"))
-    dependencies = {p["name"] for p in lock["package"]}
-    return dependencies - workspace
+    # Keep Cargo's opaque package IDs, including source identity. Reading all
+    # resolved targets may fail offline; that invalidates publication, never
+    # licenses a name-based fallback or an incomplete ready snapshot.
+    sources = {}
+    for package in metadata["packages"]:
+        for unit in package["targets"]:
+            source = Path(unit["src_path"]).resolve()
+            identity = (package["id"], package["id"] not in members)
+            if source in sources and sources[source] != identity:
+                raise ValueError(f"ambiguous Cargo target source: {source}")
+            sources[source] = identity
+    return checkout, sources
 
 
-def copy_dependencies(target, copied, dependencies):
+def unit_identity(depfile, checkout, sources):
+    """Resolve rustc's primary input to its exact Cargo target (§AR-ci.3.4.1.5).
+
+    Rustc depfiles put the target input first. Parse Make escaping rather than
+    splitting on ':' (Windows drive letters) or whitespace (escaped spaces).
+    The unit hash only joins artifacts after source identity is established.
+    """
+    line = depfile.read_text(encoding="utf-8").splitlines()[0]
+    _, prerequisites = line.split(": ", 1)
+    match = re.match(r"(?:\\[ #\\]|[^ ])+", prerequisites)
+    if not match:
+        raise ValueError(f"no primary input in {depfile}")
+    source = re.sub(r"\\([ #\\])", r"\1", match[0])
+    return sources.get((checkout / source).resolve())
+
+
+def package_units(profiles, checkout, sources):
+    """Join build execution to its identified executable fingerprint (§AR-ci.3.4.1.5)."""
+    units = {profile: {} for profile in profiles}
+    builds = {}
+    depfiles = [(profile, depfile) for profile in profiles for depfile in
+                list((profile / "deps").glob("*.d"))
+                + list((profile / "build").glob("*/*.d"))]
+    for profile, depfile in depfiles:
+        match = re.search(r"-([0-9a-f]{16})\.d$", depfile.name)
+        if not match:
+            continue
+        identity = unit_identity(depfile, checkout, sources)
+        if identity is None:
+            continue
+        unit_hash = match[1]
+        if unit_hash in units[profile] and units[profile][unit_hash] != identity:
+            raise ValueError(f"ambiguous Cargo unit: {depfile}")
+        units[profile][unit_hash] = identity
+        if depfile.parent.parent.name == "build":
+            fingerprint = profile / ".fingerprint" / depfile.parent.name / "build-script-build-script-build"
+            if fingerprint.is_file():
+                checksum = int.from_bytes(bytes.fromhex(fingerprint.read_text()), "little")
+                if checksum in builds and builds[checksum] != identity:
+                    raise ValueError(f"ambiguous build-script fingerprint: {fingerprint}")
+                builds[checksum] = identity
+    # Cross-compilation executes a host build-script unit from another profile.
+    for profile in profiles:
+        for fingerprint in (profile / ".fingerprint").glob("*/run-build-script-*.json"):
+            dependencies = json.loads(fingerprint.read_text(encoding="utf-8"))["deps"]
+            linked = [builds[d[-1]] for d in dependencies
+                      if d[1] == "build_script_build" and d[-1] in builds]
+            if len(linked) == 1:
+                units[profile][fingerprint.parent.name.rsplit("-", 1)[1]] = linked[0]
+    return units
+
+
+def copy_dependencies(target, copied, ownership):
     """Select package-owned state across host/cross/nested profiles (§AR-ci.3.4.1.5).
 
-    Cargo names fingerprint directories <package>-<unit hash>. That same hash
-    identifies deps artifacts and build-script directories, regardless of the
-    crate's library name or platform suffix. Only metadata-known third parties
-    enter the view; stale/renamed workspace output cannot enter by omission.
+    Compiler depfiles join each unit hash to a metadata target's exact source
+    location and opaque package ID. Build execution joins the checksum of that
+    package's compiled build script. Names never establish ownership.
     """
     def copy(source):
         destination = copied / source.relative_to(target)
@@ -65,6 +125,8 @@ def copy_dependencies(target, copied, dependencies):
     copy(target / "checkout.json")
     fingerprint_roots = sorted(target.rglob(".fingerprint"))
     profiles = {path.parent for path in fingerprint_roots}
+    checkout, sources = ownership
+    units = package_units(profiles, checkout, sources)
     for path in target.rglob("*"):
         if (path.name in ("CACHEDIR.TAG", ".rustc_info.json") and path.is_file()
                 and not any(profile in path.parents for profile in profiles)):
@@ -78,7 +140,7 @@ def copy_dependencies(target, copied, dependencies):
             match = re.fullmatch(r"(.+)-([0-9a-f]{16})", fingerprint.name)
             if not match:
                 raise ValueError(f"unrecognized Cargo fingerprint: {fingerprint}")
-            if match[1] in dependencies:
+            if units[profile].get(match[2], (None, False))[1]:
                 hashes.add(match[2])
                 copy(fingerprint)
                 build = profile / "build" / fingerprint.name
@@ -107,11 +169,11 @@ def prepare(root, snapshot):
                 continue
             if not target.is_dir() or target.is_symlink():
                 raise ValueError(f"unrecognized Node target: {target}")
-            dependencies = owner(target)
+            ownership = owner(target)
             if any(p.is_symlink() for p in target.rglob("*")):
                 raise ValueError(f"symlink in Node target: {target}")
             copied = staged / target.name
-            copy_dependencies(target, copied, dependencies)
+            copy_dependencies(target, copied, ownership)
         staged.rename(snapshot)
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:

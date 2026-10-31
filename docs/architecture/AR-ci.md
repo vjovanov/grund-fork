@@ -653,7 +653,12 @@ release, including the fingerprints and build-script output they need for reuse.
 It excludes every workspace package's output: libraries and metadata, binaries,
 native bindings, build scripts and their output, fingerprints, tests and examples,
 as well as incremental state, including obsolete target names. Workspace metadata (including bundled
-source workspaces) and lock identities define package boundaries, rather than filename prefixes. The
+source workspaces) and lock identities define package boundaries, rather than filename prefixes.
+Classification keeps the complete resolved package ID and source location through
+the compiler's recorded target inputs and linked build-script fingerprints.
+Equal names, including equal names and versions from different sources, do not
+merge packages. Unknown or obsolete workspace state cannot become third-party
+state when a package name is reused. The
 separately cached TypeScript input ([§AR-ci.3.4.1.3](AR-ci.md#3413-the-typescript-compiler-a-prepared-input)) is excluded too.
 
 This rule applies to every Node-root publication, in `ci-leg.yml` on Linux and
@@ -695,8 +700,11 @@ for every affected full gate, including added copying, filtering, restore,
 recompilation and archive creation. Paired native samples include matched
 exact-hit and prefix/miss/save conditions; dispatches that skip the production
 save work cannot stand in for a save-path measurement. An isolated native harness
-may exercise equivalent complete archive work without publishing branch caches
-or changing production event guards. Smaller archives alone do not prove a
+may exercise equivalent complete archive work without changing production event
+guards. Temporary experiment entries require an explicit fork/ref authorization,
+an isolated namespace, recorded exact identities and bounded, verified cleanup,
+including independent recovery after cancellation. They never use production
+cache keys or fallbacks. Smaller archives alone do not prove a
 fifteen-minute gate.
 
 #### 3.4.2 Per-test durations

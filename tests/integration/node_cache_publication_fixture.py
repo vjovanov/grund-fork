@@ -69,6 +69,8 @@ class PublicationFixture:
         self.save = self.index("Save the Node acceptance's build target")
         self.acceptance = self.index("node acceptance")
         self.artifacts = {"workspace": set(), "dependency": set()}
+        self.workspace_state = set()
+        self.identities = {}
         self.targets = []
         self.owners = []
         self._build_checkouts()
@@ -87,8 +89,26 @@ class PublicationFixture:
         )
         if result.returncode:
             raise AssertionError(f"fixture Cargo build failed:\n{result.stderr}")
-        return [json.loads(line) for line in result.stdout.splitlines()
-                if json.loads(line).get("reason") == "compiler-artifact"]
+        messages = [json.loads(line) for line in result.stdout.splitlines()]
+        directory = target / ("debug" if profile == "dev" else profile)
+        for message in messages:
+            if message.get("reason") == "compiler-artifact":
+                package = Path(message["manifest_path"]).parent.name
+                self.identities.setdefault(package, set()).add(message["package_id"])
+                if Path(message["manifest_path"]).parent.name in DEPENDENCIES:
+                    continue
+                for filename in message["filenames"]:
+                    match = re.search(r"-([0-9a-f]{16})(?:\.|$)", Path(filename).name)
+                    if match:
+                        for parent in (directory / ".fingerprint", directory / "build"):
+                            for unit in parent.glob("*-" + match[1]):
+                                self.workspace_state.update(files(unit))
+            elif message.get("reason") == "build-script-executed":
+                if any("/" + name + "#" in message["package_id"] for name in WORKSPACE):
+                    build = Path(message["out_dir"]).parent
+                    self.workspace_state.update(files(build))
+                    self.workspace_state.update(files(directory / ".fingerprint" / build.name))
+        return [m for m in messages if m.get("reason") == "compiler-artifact"]
 
     def _workspace(self, checkout):
         checkout.mkdir(exist_ok=True)
@@ -99,11 +119,25 @@ class PublicationFixture:
             crate = checkout / name
             (crate / "src").mkdir(parents=True)
             manifest = f'[package]\nname="{name}"\nversion="0.1.0"\nedition="2021"\n'
+            # Same name, distinct source and version, alongside a workspace
+            # member. Cargo accepts both; publication must retain the external one.
+            if name == "grund-vendor":
+                manifest = manifest.replace('name="grund-vendor"', 'name="grund-core"')
+                manifest = manifest.replace('version="0.1.0"', 'version="0.2.0"')
+            if name == "vendor":
+                manifest = manifest.replace('version="0.1.0"', 'version="0.2.0"')
+            if name == "fixture-helper":
+                # Its obsolete package name will later be a third-party name.
+                manifest = manifest.replace('name="fixture-helper"', 'name="vendor"')
+                manifest = manifest.replace('version="0.1.0"', 'version="0.2.0"')
             if name == "fixture-helper":
                 manifest += '[lib]\nname="custom_workspace_output"\ncrate-type=["rlib", "cdylib"]\n'
             if name == "grund":
                 manifest += "[dependencies]\n" + "".join(
-                    f'{dep}={{path="../{dep}"}}\n' for dep in WORKSPACE[1:] + DEPENDENCIES)
+                    f'{dep}={{path="../{dep}"'
+                    + (',package="vendor"' if dep == "fixture-helper" else
+                       ',package="grund-core"' if dep == "grund-vendor" else '') + '}\n'
+                    for dep in WORKSPACE[1:] + ("grund-vendor",))
             (crate / "Cargo.toml").write_text(manifest)
             (crate / "src/lib.rs").write_text(f"pub fn answer()->usize {{ {index + 42} }}\n")
             # Both workspace and third-party build-script artifacts must be classified.
@@ -111,7 +145,7 @@ class PublicationFixture:
                 'fn main() { println!("cargo:rerun-if-changed=build.rs"); '
                 f'println!("cargo:rustc-env=FIXTURE_PACKAGE={name}"); }}\n')
         main = checkout / "grund"
-        (main / "src/main.rs").write_text('fn main() { println!("{}", vendor::answer()); }\n')
+        (main / "src/main.rs").write_text('fn main() { println!("{}", grund_vendor::answer()); }\n')
         (main / "examples").mkdir()
         (main / "examples/probe.rs").write_text("fn main() {}\n")
 
@@ -145,7 +179,11 @@ class PublicationFixture:
         for checkout in {checkout for checkout, _ in self.targets}:
             manifest = checkout / "fixture-helper/Cargo.toml"
             manifest.write_text(manifest.read_text().replace(
-                "custom_workspace_output", "renamed_workspace_output"))
+                "custom_workspace_output", "renamed_workspace_output").replace(
+                'name="vendor"', 'name="renamed-member"'))
+            main = checkout / "grund/Cargo.toml"
+            main.write_text(main.read_text().replace('package="vendor"', 'package="renamed-member"')
+                            + 'vendor={path="../vendor"}\n')
         for checkout, target in self.targets:
             for profile in ("dev", "release"):
                 for message in self.cargo(checkout, target, profile):

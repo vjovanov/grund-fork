@@ -6,9 +6,7 @@ import re
 import tempfile
 import time
 
-from node_cache_publication_fixture import (
-    DEPENDENCIES, WORKSPACE, PublicationFixture, digest, files,
-)
+from node_cache_publication_fixture import DEPENDENCIES, PublicationFixture, digest, files
 from test_ci_cache_saves import with_value
 
 
@@ -24,6 +22,12 @@ def check_publication(self, workflow, build_toolchain=None):
                                         for p in fixture.owners),
                                     "mixed-toolchain fixture must exercise untagged owner targets")
                 fixture.rename_rebuild()
+                self.assertTrue(fixture.identities["grund-core"].isdisjoint(
+                    fixture.identities["grund-vendor"]), "same-named source identities collapsed")
+                self.assertEqual(4, len(fixture.identities["fixture-helper"]),
+                                 "each checkout must build the old and renamed package")
+                self.assertTrue(fixture.identities["vendor"].isdisjoint(
+                    fixture.identities["fixture-helper"]), "obsolete source identity collapsed")
                 self.assertTrue(any("custom_workspace_output" in p.name
                                     for p in fixture.artifacts["workspace"]),
                                 "fixture lost its pre-rename workspace artifact evidence")
@@ -52,13 +56,12 @@ def check_publication(self, workflow, build_toolchain=None):
                           if digest(before[path]) in hashes]
                 extra = [str(p) for p in payload if
                          "incremental" in p.parts or "typescript-5.9.3" in p.parts]
-                # Fingerprint/build directories are package-named, even for a renamed lib.
-                for path in payload:
-                    for parent in path.parents:
-                        if (parent.parent.name in (".fingerprint", "build")
-                                and parent.name.rsplit("-", 1)[0] in WORKSPACE):
-                            extra.append(str(path))
-                            break
+                # Use Cargo's actual workspace unit paths: package names can
+                # also name legitimate third-party fingerprints/build state.
+                self.assertTrue(fixture.workspace_state, "no workspace state evidence")
+                for path in fixture.workspace_state:
+                    suffix = "/" + path.relative_to(fixture.root).as_posix()
+                    extra.extend(str(p) for p in payload if p.as_posix().endswith(suffix))
 
                 fixture.restore_payload(payload)
                 for path in dependencies | set(fixture.owners):
