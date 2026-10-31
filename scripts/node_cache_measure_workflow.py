@@ -15,7 +15,7 @@ from node_cache_measure import BASE
 CONFIG = "fromJSON(inputs.configuration)"
 CONDITION = f"{CONFIG}.condition"
 SOURCE = f"{CONFIG}.source"
-TOOLS = "${{ runner.temp }}/grund-1122-tools"
+TOOLS = "${{ env.MEASURE_TOOLS }}"
 WORK = "${{ runner.temp }}/grund-1122-measure"
 SAMPLE = f"{CONDITION} != 'validate'"
 SAVE = f"{CONDITION} == 'seed' || {CONDITION} == 'save'"
@@ -52,7 +52,7 @@ def job(workflow, name):
     result = deepcopy(original["jobs"][name])
     result["env"] = {**original.get("env", {}), "MEASURE_WORKFLOW": workflow,
                      "MEASURE_JOB": name, "MEASURE_CONFIG": "${{ inputs.configuration }}",
-                     "MEASURE_TOOLS": TOOLS, "GH_TOKEN": "${{ github.token }}",
+                     "GH_TOKEN": "${{ github.token }}",
                      "PYTHONDONTWRITEBYTECODE": "1"}
     result["if"] = expression(CONFIG + (".os != 'macOS'" if name == "node" else ".os == 'macOS'"))
     if name == "node":
@@ -69,7 +69,9 @@ def job(workflow, name):
          '    shutil.copy2(source, out / source.name)\n'
          'shutil.copy2("scripts/node_cache_measure_service.cjs", out)\n'
          'for source in pathlib.Path("scripts/node-cache-toolkit").iterdir():\n'
-         '    if source.is_file(): shutil.copy2(source, out / source.name)\nPY\n'},
+         '    if source.is_file(): shutil.copy2(source, out / source.name)\n'
+         'with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as environment:\n'
+         '    environment.write(f"MEASURE_TOOLS={out.as_posix()}\\n")\nPY\n'},
         {"uses": "actions/checkout@v6", "with": {"ref": expression(SOURCE), "fetch-depth": 0}},
     ]
     for original_step in result["steps"][1:]:

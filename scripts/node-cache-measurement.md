@@ -2,8 +2,9 @@
 
 Implements [§AR-ci.requirements.1.verification](../docs/architecture/AR-ci.md#requirements1verification-a-cost-correction-measures-comparable-full-gates)
 and the isolated-experiment boundary of [§AR-ci.3.4.1.5](../docs/architecture/AR-ci.md#3415-a-dependency-only-publication-view-with-the-live-root-intact).
-Fix round 2 supplies this machinery **without executing tests, native transactions
-or performance samples**. R2-03's elapsed-time acceptance remains outstanding.
+Fix round 3 repairs the harness tools-path context **without executing tests,
+native transactions or performance samples**. R3-03's hosted validation and
+elapsed-time acceptance remain outstanding.
 
 ## Scope and transport
 
@@ -55,7 +56,7 @@ cost is part of every complete candidate gate; do not substitute the older suite
 ```bash
 base=d338c4814a095fef54708e83367597c4e7955aad
 candidate=b534ccbbadbd995998d0d39bf9ce57f894f9c4ae
-# The final fix-2 result records this separate, complete harness SHA literally.
+# The final fix-3 result records this separate, complete harness SHA literally.
 harness=$(git log -1 --format=%H -- scripts/node-cache-measurement.md)
 gh api repos/vjovanov/grund-fork/git/ref/heads/fix/issue-1122 --jq .object.sha
 mkdir -p /var/tmp/grund-1122-tmp
@@ -63,7 +64,7 @@ mkdir -p /var/tmp/grund-1122-tmp
 
 The candidate also includes the offline ledger safety tests, so their macOS
 suite cost stays in the source measurements. The fork ref must equal `$harness`
-and the fix-2 result. Source and harness are
+and the fix-3 result. Source and harness are
 separate identities; source builds are checked against the pinned source after
 checkout. Run focused regressions downstream before spending native repetitions:
 
@@ -82,6 +83,38 @@ Rust shards, watch proof, builds and self-check. Only source checkout, experimen
 transport/identities and experimental publication conditions change. `validate`
 is an explicitly separate transaction preflight, never a full-gate sample.
 
+## Workflow context check
+
+After regeneration, use `actionlint` 1.7.12's
+[context-availability check](https://github.com/rhysd/actionlint/blob/v1.7.12/docs/checks.md#availability-of-contexts-and-special-functions)
+on both the reusable workflow and its dispatch caller:
+
+```bash
+actionlint -shellcheck= -pyflakes= \
+  .github/workflows/node-cache-measure.yml .github/workflows/pre-release-checks.yml
+```
+
+This is a static workflow check, independent of the measured source suites.
+It must exit 0. As a regression witness, the same linter rejects the original
+harness at both reported lines (159 and 374), with exit 1:
+
+```bash
+git show c2ef6cacd66f15cc1ca57b3b8ff4a72a9710d333:.github/workflows/node-cache-measure.yml \
+  | actionlint -shellcheck= -pyflakes= -
+```
+
+GitHub's [context availability](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#context-availability)
+excludes `runner` from job-level `env`. The existing preservation step now derives
+the tools directory from `RUNNER_TEMP`, copies the pinned harness there, then
+exports that exact path through the UTF-8
+[`GITHUB_ENV` file](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-environment-variable)
+before source checkout. Forward slashes from `Path.as_posix()` support native
+Windows Python, npm, Git Bash and JavaScript children. Later shell steps use
+`env.MEASURE_TOOLS`; the JavaScript action and its children inherit the same
+`MEASURE_TOOLS` value. There is no job-level runner expression or second tools-path
+calculation. The static check is not hosted dispatch, native transaction, recovery
+or performance evidence; establish those below before repeated samples.
+
 ## Dispatch, wait and collect
 
 Use authenticated `gh` with fork Actions read/write/dispatch permissions, cache
@@ -89,7 +122,7 @@ service availability and native hosted capacity. The fix state has not exercised
 those operations. Start a fresh session; never rerun an old seed attempt in place.
 
 ```bash
-session="r3-$(date -u +%Y%m%dT%H%M%SZ)"
+session="fix3-$(date -u +%Y%m%dT%H%M%SZ)"
 evidence="$HOME/ag/tmp/grund-1122-native-$session"
 mkdir -p "$evidence"
 dispatch_one() {
