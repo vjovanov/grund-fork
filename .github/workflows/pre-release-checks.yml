@@ -3,6 +3,14 @@ name: Pre-release checks
 
 on:
   workflow_dispatch:
+    inputs:
+      # §AR-ci.requirements.1.verification: registered dispatch for the isolated fork experiment.
+      node-cache-experiment:
+        description: "#1122 measurement configuration JSON; empty runs the ordinary release checks"
+        type: string
+        default: ""
+
+run-name: ${{ inputs.node-cache-experiment != '' && format('Node cache 1122 {0}', fromJSON(inputs.node-cache-experiment).label) || 'Pre-release checks' }}
 
 env:
   # §AR-ci.13.6: no incremental state is written, so none reaches a cargo cache.
@@ -10,6 +18,7 @@ env:
 
 jobs:
   registry-names:
+    if: inputs.node-cache-experiment == ''
     name: verify package-name availability
     runs-on: ubuntu-latest
     steps:
@@ -19,6 +28,7 @@ jobs:
         run: bash scripts/check-registry-names.sh
 
   pgo-release-binary:
+    if: inputs.node-cache-experiment == ''
     name: build and self-check PGO release binary
     runs-on: ubuntu-latest
     steps:
@@ -57,4 +67,15 @@ jobs:
 
   # §AR-ci.5.4: the whole catalog passes its ceilings before a release ships.
   nightly-benchmarks:
+    if: inputs.node-cache-experiment == ''
     uses: ./.github/workflows/bench-nightly.yml
+
+  # §AR-ci.requirements.1.verification: no production events or cache publication.
+  node-cache-experiment:
+    if: inputs.node-cache-experiment != '' && github.repository == 'vjovanov/grund-fork'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/node-cache-measure.yml
+    with:
+      configuration: ${{ inputs.node-cache-experiment }}
