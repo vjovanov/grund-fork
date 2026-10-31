@@ -45,6 +45,16 @@ class NodeAcceptanceWorkflowTests(unittest.TestCase):
         from node_cache_publication_assertions import check_publication
         check_publication(self, "macos-suites.yml")
 
+    def test_ci_leg_publishes_dependencies_built_with_binding_toolchain(self):
+        """§AR-ci.3.4.1.5: 1.95.0 builds precede stable preparation (CI 1.99.1)."""
+        from node_cache_publication_assertions import check_publication
+        check_publication(self, "ci-leg.yml", build_toolchain="1.95.0")
+
+    def test_macos_suites_publishes_dependencies_built_with_binding_toolchain(self):
+        """§AR-ci.3.4.1.5: mixed-toolchain publication works at both workflow sites."""
+        from node_cache_publication_assertions import check_publication
+        check_publication(self, "macos-suites.yml", build_toolchain="1.95.0")
+
     def test_rehearsals_prepare_each_source_once_and_isolate_consumers(self):
         """§AR-ci.3.4.1.4: actual npm preparation, private bytes and same-version sources."""
         result = subprocess.run([sys.executable, str(Path(__file__).with_name(

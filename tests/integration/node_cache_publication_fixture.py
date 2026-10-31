@@ -24,12 +24,24 @@ WORKSPACE = ("grund", "grund-core", "grund-node", "fixture-helper")
 DEPENDENCIES = ("vendor", "grund-vendor")
 
 
+def native_bash():
+    """Resolve Git Bash explicitly on Windows, as distribution/payloads.py does."""
+    if os.name == "nt":
+        git = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git/bin/bash.exe"
+        if git.is_file():
+            return str(git)
+    resolved = shutil.which("bash")
+    if not resolved or (os.name == "nt" and "system32" in resolved.lower()):
+        raise AssertionError("publication fixture requires native Git Bash, not the WSL launcher")
+    return resolved
+
+
 def files(root):
     return {p: p.read_bytes() for p in root.rglob("*") if p.is_file()}
 
 
 class PublicationFixture:
-    def __init__(self, base, workflow):
+    def __init__(self, base, workflow, build_toolchain=None):
         self.base = base
         self.home = base / "home"
         self.root = self.home / "ag/tmp/grund-node-target"
@@ -44,6 +56,8 @@ class PublicationFixture:
             GITHUB_WORKSPACE=str(self.checkout), PYTHONDONTWRITEBYTECODE="1",
             RUNNER_TEMP=str(base / "runner-temp"),
         )
+        self.build_toolchain = build_toolchain
+        self.bash = native_bash()
         for relative in ("scripts", "tests/bindings"):
             shutil.copytree(REPO_ROOT / relative, self.checkout / relative,
                             ignore=shutil.ignore_patterns("__pycache__"))
@@ -63,10 +77,13 @@ class PublicationFixture:
         return next(i for i, step in enumerate(self.steps) if step_name(step) == name)
 
     def cargo(self, checkout, target, profile):
+        environment = dict(self.environment)
+        if self.build_toolchain:
+            environment["RUSTUP_TOOLCHAIN"] = self.build_toolchain
         result = subprocess.run(
             ["cargo", "build", "--offline", "--workspace", "--all-targets",
              "--profile", profile, "--target-dir", str(target), "--message-format=json"],
-            cwd=checkout, env=self.environment, capture_output=True, text=True,
+            cwd=checkout, env=environment, capture_output=True, text=True,
         )
         if result.returncode:
             raise AssertionError(f"fixture Cargo build failed:\n{result.stderr}")
@@ -123,6 +140,19 @@ class PublicationFixture:
         tools.mkdir(parents=True)
         (tools / "compiler").write_bytes(b"separately cached TypeScript input")
 
+    def rename_rebuild(self):
+        """Keep old compiler-message paths and add new ones in persistent targets."""
+        for checkout in {checkout for checkout, _ in self.targets}:
+            manifest = checkout / "fixture-helper/Cargo.toml"
+            manifest.write_text(manifest.read_text().replace(
+                "custom_workspace_output", "renamed_workspace_output"))
+        for checkout, target in self.targets:
+            for profile in ("dev", "release"):
+                for message in self.cargo(checkout, target, profile):
+                    package = Path(message["manifest_path"]).parent.name
+                    kind = "dependency" if package in DEPENDENCIES else "workspace"
+                    self.artifacts[kind].update(Path(p) for p in message["filenames"])
+
     def expand(self, text):
         for key, value in self.environment.items():
             text = text.replace("${{ env." + key + " }}", value)
@@ -144,7 +174,7 @@ class PublicationFixture:
             command = match.group(1).strip()
             if command in ("|", ">"):
                 command = textwrap.dedent(step[match.end():]).strip()
-            result = subprocess.run(["bash", "-c", self.expand(command)], cwd=self.checkout,
+            result = subprocess.run([self.bash, "-c", self.expand(command)], cwd=self.checkout,
                                     env=self.environment, capture_output=True, text=True)
             if result.returncode:
                 raise AssertionError(f"publication command failed: {command}\n"

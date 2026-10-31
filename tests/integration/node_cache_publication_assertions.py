@@ -12,13 +12,23 @@ from node_cache_publication_fixture import (
 from test_ci_cache_saves import with_value
 
 
-def check_publication(self, workflow):
+def check_publication(self, workflow, build_toolchain=None):
     scratch = Path.home() / "ag/tmp/grund-1122-target"
     scratch.mkdir(parents=True, exist_ok=True)
     for cargo_hit in (False, True):
         with self.subTest(workflow=workflow, cargo_hit=cargo_hit):
             with tempfile.TemporaryDirectory(prefix="publication-", dir=scratch) as temp:
-                fixture = PublicationFixture(Path(temp), workflow)
+                fixture = PublicationFixture(Path(temp), workflow, build_toolchain)
+                if build_toolchain == "1.95.0":
+                    self.assertTrue(all(not (p.parent / "CACHEDIR.TAG").exists()
+                                        for p in fixture.owners),
+                                    "mixed-toolchain fixture must exercise untagged owner targets")
+                fixture.rename_rebuild()
+                self.assertTrue(any("custom_workspace_output" in p.name
+                                    for p in fixture.artifacts["workspace"]),
+                                "fixture lost its pre-rename workspace artifact evidence")
+                self.assertTrue(all(p.is_file() for p in fixture.artifacts["workspace"]),
+                                "persistent target lost old output before publication")
                 before = files(fixture.root)
                 fixture.prepare(cargo_hit)
                 self.assertEqual(before, files(fixture.root),

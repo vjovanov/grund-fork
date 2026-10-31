@@ -652,8 +652,8 @@ The Node cache publishes reusable third-party Cargo artifacts for both dev and
 release, including the fingerprints and build-script output they need for reuse.
 It excludes every workspace package's output: libraries and metadata, binaries,
 native bindings, build scripts and their output, fingerprints, tests and examples,
-as well as incremental state. Package identity comes from the workspace, including
-bundled source workspaces; a filename prefix is not the package boundary. The
+as well as incremental state, including obsolete target names. Workspace metadata (including bundled
+source workspaces) and lock identities define package boundaries, rather than filename prefixes. The
 separately cached TypeScript input ([§AR-ci.3.4.1.3](AR-ci.md#3413-the-typescript-compiler-a-prepared-input)) is excluded too.
 
 This rule applies to every Node-root publication, in `ci-leg.yml` on Linux and
