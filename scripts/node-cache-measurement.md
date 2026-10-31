@@ -2,13 +2,14 @@
 
 This harness exercises the complete Ubuntu and Windows Node jobs and the complete
 macOS suites job for [§AR-ci.requirements.1.verification](../docs/architecture/AR-ci.md#requirements1verification-a-cost-correction-measures-comparable-full-gates).
-Implementation prepares it; review executes and assesses it after the lifecycle
-publishes the branch. No native sample has been executed by implement.
+Fix prepares it; review executes and assesses it after the lifecycle publishes
+the branch. **R1-03 remains deferred: this artifact-only harness is not ready for
+performance acceptance.** Apply the stopping rule below before spending samples.
 
 The base source is `d338c4814a095fef54708e83367597c4e7955aad`; the candidate source is
-`73a3880b470256a2c1af29a95347489c83bd9e09`. The harness revision is the separate
+`ca9c56079c5b70d4099757edcc10b8ea641e8b09`. The harness revision is the separate
 commit containing this document and `.github/workflows/node-cache-measure.yml`,
-recorded exactly in the implement export. Do not substitute the moving branch
+recorded exactly in the fix-1 result. Do not substitute the moving branch
 head for either source. A meaningful production correction requires new candidate
 samples. Changing the harness requires new seeds and matched measurements too.
 
@@ -17,11 +18,15 @@ samples. Changing the harness requires new seeds and matched measurements too.
 The candidate implements [§AR-ci.3.4.1.5](../docs/architecture/AR-ci.md#3415-a-dependency-only-publication-view-with-the-live-root-intact)
 using `grund-node-target-dependencies`, a sibling snapshot of the live root,
 and `node-target-v4-1.95.0` keys/prefixes. Both production workflow sites use
-`scripts/node_cache_publication.py`. Each recorded owner's actual workspace
-metadata supplies all workspace package selectors; Cargo cleans only the copy,
-including renamed targets, examples, build scripts, dev/release, cross-target
-profiles and nested Cargo roots. Bundled Node sources are a subset of the owning
-workspace members. Third-party packages are retained regardless of their names.
+`scripts/node_cache_publication.py`. Each recorded owner's workspace metadata and
+lock identify third-party package names. Their Cargo fingerprint directories
+identify the unit hashes of reusable compiler artifacts and build-script state.
+Only those files/directories and ownership/cache metadata enter the snapshot,
+across dev/release, host/cross and nested targets. No Cargo clean is invoked and
+an ownership-created target does not need a cache-directory tag. Old workspace
+target names are excluded by the same positive selection as current names.
+Bundled Node sources are a subset of the owning workspace members. Third-party
+packages are retained regardless of their names (including `grund-vendor`).
 The separate tools tree is omitted. No local target selector or reclaimer changes.
 
 Restore copies snapshot files back to the same checkout-relative paths without
@@ -49,8 +54,42 @@ The missing capability is a measured cache-service transport calibration for the
 same archive sizes/native environments; smaller archives or artifact-only means
 cannot discharge it. Existing historical logs can inform calibration but are not
 the paired full-job baseline. No permission to publish branch production caches
-or change event policy is implied. If a credible calibration cannot be obtained,
-return that concrete obstacle to the supervisor before approval.
+or change event policy is implied.
+
+## R1-03 stopping rule and concrete unblock
+
+Review-1 established the registered route in fork run `41204365529`; cancellation
+left zero valid samples, not a failed dispatch or an access denial. Do not reuse
+that run as a seed. Its Windows historical upload tails exclude the initial
+transfer interval, restore and part of finalization, and cover neither Ubuntu
+nor macOS. No finite three-OS upload/restore/finalization bound follows from them.
+
+The present permission boundary allows artifact publication and explicitly
+forbids branch cache publication. Neither this harness nor read-only GitHub APIs
+can time cache creation, signed upload and finalization of these exact archives
+without writing an entry. Artifact timing or an unrelated production step's
+maximum is not an evidence-backed upper bound for that missing transaction.
+No quantified calibration machinery is supplied or claimed in this fix round.
+
+Stop before repeated exact/save samples until the supervisor supplies one of:
+
+- Authorization and a separate scoped harness for temporary, experiment-only
+  fork cache entries, isolated from every production key/prefix. That experiment
+  must compare both services on identical archive bytes/sizes on all three OSes,
+  time full restore/upload/finalization (including first byte and service setup),
+  preserve raw logs and checksums, and remove only its experiment entries after
+  measurement. The current harness never writes those entries.
+- Native production instrumentation/evidence that already measures those full
+  transactions for matched archives/environments on all three systems, with a
+  defensible uncertainty envelope. The Windows tail evidence is insufficient.
+
+The reviewer must assess the calibration's repeated per-OS/operation deltas and
+spread, environment/size coverage and uncertainty before accepting a correction.
+Reject unmatched inputs or missing phases. If uncertainty consumes the candidate's
+margin below 900 seconds, collect more calibration/samples or return inconclusive.
+Retain the calibration inputs, analysis, uncertainty and decision alongside the
+raw native evidence under `runtime/review-2/calibration/`. Until that exists,
+the commands below are conditional preparation, not an acceptance-ready route.
 
 ## Registration and derivation
 
@@ -62,8 +101,9 @@ experiment input skips those checks and is restricted to this fork. Thus the
 new reusable file needs no standalone workflow-dispatch registration. No default
 branch edit, new branch or repository setting change is required. The lifecycle
 completion publisher must first put the committed harness on `fix/issue-1122`.
-The first downstream dispatch still establishes hosted validation of this route;
-implement did not dispatch it.
+Review-1's cancelled seed established hosted routing. No successful seed or
+performance sample exists. Fix-1 makes no dispatch and leaves publication to its
+completion callback.
 
 The generated workflow derives source steps from the production Node and macOS
 jobs. Regenerate with `python3 scripts/node_cache_measure_workflow.py` using
@@ -84,12 +124,14 @@ but did not reserve capacity or establish a successful harness run.
 
 ```bash
 base=d338c4814a095fef54708e83367597c4e7955aad
-candidate=73a3880b470256a2c1af29a95347489c83bd9e09
-harness=$(git log -1 --format=%H -- .github/workflows/node-cache-measure.yml)
+candidate=ca9c56079c5b70d4099757edcc10b8ea641e8b09
+# This handoff's commit is the separate harness SHA; compare it with the literal
+# SHA in the fix-1 result. The older workflow-file commit omits this handoff.
+harness=$(git log -1 --format=%H -- scripts/node-cache-measurement.md)
 gh api repos/vjovanov/grund-fork/git/ref/heads/fix/issue-1122 --jq .object.sha
 ```
 
-The returned fork SHA must equal `$harness` and the implement export's harness
+The returned fork SHA must equal `$harness` and the fix-1 result's harness
 SHA. Dispatch checks this equality before sending; jobs also reject a moved ref.
 Use a fresh unique label prefix if repeating an experiment. This helper returns
 the run ID and waits for success, without identifying an old run as a new one:
@@ -111,8 +153,8 @@ dispatch_one() {
   gh run watch "$id" --repo vjovanov/grund-fork --exit-status >&2 || return
   printf '%s\n' "$id"
 }
-seed_base=$(dispatch_one r1-base-seed "$base" seed) || exit 1
-seed_candidate=$(dispatch_one r1-candidate-seed "$candidate" seed) || exit 1
+seed_base=$(dispatch_one r2-base-seed "$base" seed) || exit 1
+seed_candidate=$(dispatch_one r2-candidate-seed "$candidate" seed) || exit 1
 ```
 
 Each seed run executes all three complete native gates cold, applies the source's
@@ -132,9 +174,9 @@ evidence="$HOME/ag/tmp/grund-1122-native-evidence"
 mkdir -p "$evidence"
 for condition in exact save; do
   for sample in 1 2; do
-    run_base=$(dispatch_one "r1-base-$condition-$sample" "$base" "$condition" "$seed_base") || exit 1
+    run_base=$(dispatch_one "r2-base-$condition-$sample" "$base" "$condition" "$seed_base") || exit 1
     python3 scripts/node_cache_measure.py collect "$run_base" --out "$evidence/$run_base" || exit 1
-    run_candidate=$(dispatch_one "r1-candidate-$condition-$sample" "$candidate" "$condition" "$seed_candidate") || exit 1
+    run_candidate=$(dispatch_one "r2-candidate-$condition-$sample" "$candidate" "$condition" "$seed_candidate") || exit 1
     python3 scripts/node_cache_measure.py collect "$run_candidate" --out "$evidence/$run_candidate" || exit 1
   done
 done
