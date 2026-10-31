@@ -36,8 +36,12 @@ def owner(target):
     host = subprocess.run(["rustc", "-vV"], capture_output=True, text=True, check=True)
     triple = next(line.removeprefix("host: ") for line in host.stdout.splitlines()
                   if line.startswith("host: "))
-    metadata = json.loads(cargo(checkout, "metadata", "--format-version", "1",
-                                "--filter-platform", triple))
+    known_targets = set(subprocess.run(["rustc", "--print", "target-list"],
+                                      capture_output=True, text=True, check=True).stdout.splitlines())
+    triples = {triple} | {p.parent.parent.name for p in target.rglob(".fingerprint")
+                         if p.parent.parent.name in known_targets}
+    platforms = [argument for value in sorted(triples) for argument in ("--filter-platform", value)]
+    metadata = json.loads(cargo(checkout, "metadata", "--all-features", "--format-version", "1", *platforms))
     members = set(metadata["workspace_members"])
     if not members:
         raise ValueError(f"no workspace packages: {checkout}")
@@ -62,7 +66,10 @@ def unit_identity(depfile, checkout, sources):
     splitting on ':' (Windows drive letters) or whitespace (escaped spaces).
     The unit hash only joins artifacts after source identity is established.
     """
-    line = depfile.read_text(encoding="utf-8").splitlines()[0]
+    lines = depfile.read_text(encoding="utf-8").splitlines()
+    if not lines:
+        raise ValueError(f"empty Cargo depfile: {depfile}")
+    line = lines[0]
     _, prerequisites = line.split(": ", 1)
     match = re.match(r"(?:\\[ #\\]|[^ ])+", prerequisites)
     if not match:
