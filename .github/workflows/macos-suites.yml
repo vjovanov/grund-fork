@@ -76,6 +76,7 @@ jobs:
 
       # §AR-ci.3.4.1.5: materialize the filtered view before any builds; keep live output.
       - name: Materialize Node dependencies
+        if: steps.node-target.outputs.cache-matched-key != ''
         run: python scripts/node_cache_publication.py restore
 
       # §AR-ci.3.4.1.3: the pinned TypeScript compiler, under a key naming its version, so
