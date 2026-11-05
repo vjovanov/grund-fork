@@ -311,12 +311,17 @@ pub(super) fn validate_fetched_declaration(
             continue;
         }
         let hashes = trimmed.bytes().take_while(|byte| *byte == b'#').count();
+        // An ATX heading's `#`s end at a space or a tab, as the scanner reads them
+        // (§FS-declarations.checks.unmarked-heading.1).
+        let is_heading = block.may_be_heading()
+            && hashes > 0
+            && matches!(trimmed.as_bytes().get(hashes), Some(b' ' | b'\t'));
         // §FS-fetch.3.1: a line below the requested declaration that the scanner would record
         // as a declaration, conforming or near miss, by the scanner's own reading. A heading at
         // the native depth or shallower keeps the depth messages below; any other form is here.
         if declaration_count == 1
             && block.may_be_heading()
-            && !(1..=native_depth).contains(&hashes)
+            && !(is_heading && (1..=native_depth).contains(&hashes))
             && let Some(nested) = markdown_line_records(grammar, line)
         {
             return Err(fetch_operational(format!(
@@ -336,12 +341,7 @@ pub(super) fn validate_fetched_declaration(
                 line.trim_end()
             )));
         }
-        // An ATX heading's `#`s end at a space or a tab, as the scanner reads them
-        // (§FS-declarations.checks.unmarked-heading.1).
-        if block.may_be_heading()
-            && hashes > 0
-            && matches!(trimmed.as_bytes().get(hashes), Some(b' ' | b'\t'))
-        {
+        if is_heading {
             if hashes == native_depth {
                 let tail = &trimmed[hashes + 1..];
                 let Some((id, title)) = tail.split_once(':') else {

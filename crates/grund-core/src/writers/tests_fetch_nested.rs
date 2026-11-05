@@ -79,6 +79,36 @@ fn sibling_declaration_after_a_tab_is_refused_as_a_second_declaration() {
     );
 }
 
+/// §FS-fetch.3: actual native-depth and shallower headings retain their original messages.
+#[test]
+fn native_and_shallower_headings_keep_their_diagnostics() {
+    for (heading, expected) in [
+        (
+            "## AR-002-other: Other",
+            "fetch output must contain exactly one declaration and no leading content",
+        ),
+        (
+            "##\tAR-002-other: Other",
+            "fetch output must contain exactly one declaration and no leading content",
+        ),
+        (
+            "# AR-002-other: Other",
+            "fetch output heading depth 1 is invalid for a depth-2 declaration",
+        ),
+        (
+            "#\tAR-002-other: Other",
+            "fetch output heading depth 1 is invalid for a depth-2 declaration",
+        ),
+    ] {
+        let refusal = validate(
+            "native_and_shallower_diagnostics",
+            &format!("## AR-001-thing: Thing\n{heading}\n"),
+        )
+        .expect_err("another heading cannot be part of the requested declaration");
+        assert_eq!(refusal, expected, "{heading}");
+    }
+}
+
 #[test]
 fn nested_near_miss_declarations_are_refused() {
     for (name, heading, token) in [

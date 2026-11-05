@@ -142,3 +142,116 @@ fn external_facts_home_nested_declaration_in_a_crlf_home_is_refused() {
     );
     assert_eq!(tree_with_directories(&root), before);
 }
+
+fn hash_comment_project(
+    prefix: &str,
+    folder: bool,
+    nested_in_home: bool,
+) -> (std::path::PathBuf, &'static str) {
+    let home_kind = if folder { "folder" } else { "file" };
+    let root = root(&format!(
+        "hash-comment-{}-{home_kind}-{nested_in_home}",
+        prefix.len()
+    ));
+    let (home, setting, heading) = if folder {
+        (
+            "docs/arch/AR-001-thing.md",
+            "folder = \"docs/arch\"",
+            "# AR-001-thing: Thing\n",
+        )
+    } else {
+        (
+            "docs/arch.md",
+            "file = \"docs/arch.md\"",
+            "## AR-001-thing: Thing\n",
+        )
+    };
+    write(
+        &root,
+        "grund.toml",
+        &format!(
+            "grund_config_version = 1\n[id]\nnamed_sections = true\n\
+             [[kinds]]\nkind = \"AR\"\n{setting}\nfetch = \"scripts/fetch\"\n\
+             [scan]\ninclude = [\"docs\"]\ncomment_prefixes = [\"{prefix}\"]\n"
+        ),
+    );
+    let nested = format!("{prefix} AR-002-other: Other\n");
+    write(
+        &root,
+        home,
+        &format!(
+            "{heading}old\n{}",
+            if nested_in_home { &nested } else { "" }
+        ),
+    );
+    if folder {
+        write(
+            &root,
+            "docs/arch/README.md",
+            if nested_in_home {
+                "[\u{a7}AR-001-thing](AR-001-thing.md)\n[\u{a7}AR-002-other](AR-001-thing.md)\n"
+            } else {
+                "[\u{a7}AR-001-thing](AR-001-thing.md)\n"
+            },
+        );
+    }
+    executable(
+        &root,
+        "scripts/fetch",
+        &format!(
+            "#!/bin/sh\ncat <<'OUT'\n{heading}new\n{}OUT\n",
+            if nested_in_home { "" } else { &nested }
+        ),
+    );
+    (root, home)
+}
+
+/// §FS-fetch.3.1: configured hash-prefixed comments are declarations, even when their
+/// hash count matches the home's depth or a shallower heading. Both fetches must refuse.
+#[test]
+fn external_facts_hash_comment_output_is_refused_on_every_fetch() {
+    for prefix in ["#!", "##!"] {
+        for folder in [false, true] {
+            let (root, _) = hash_comment_project(prefix, folder, false);
+            let before = tree_with_directories(&root);
+            for attempt in 1..=2 {
+                let output = run(&root, &["fetch", "AR-001-thing"]);
+                assert_code(&output, 2, &format!("{prefix}, folder={folder}, {attempt}"));
+                assert_eq!(
+                    stderr(&output),
+                    "error: fetch output nests declaration `AR-002-other` inside requested \
+                     `AR-001-thing`; fetch output must hold only the requested declaration\n"
+                );
+                assert_eq!(tree_with_directories(&root), before);
+            }
+        }
+    }
+}
+
+/// §FS-fetch.6.nested: the same configured comments already in either home remain legal
+/// declarations, and replacement refuses by their file line without changing any bytes.
+#[test]
+fn external_facts_hash_comment_home_is_refused_on_every_fetch() {
+    for prefix in ["#!", "##!"] {
+        for folder in [false, true] {
+            let (root, home) = hash_comment_project(prefix, folder, true);
+            assert_code(&run(&root, &["check"]), 0, "legal home before fetch");
+            assert!(stdout(&run(&root, &["list"])).contains("AR-002-other"));
+            let before = tree_with_directories(&root);
+            let destination = if folder { "file" } else { "H2" };
+            for attempt in 1..=2 {
+                let output = run(&root, &["fetch", "AR-001-thing"]);
+                assert_code(&output, 2, &format!("{prefix}, folder={folder}, {attempt}"));
+                assert_eq!(
+                    stderr(&output),
+                    format!(
+                        "error: {home}:3: fetching `AR-001-thing` would delete `AR-002-other`, \
+                         declared inside it; move `AR-002-other` to its own {destination} or \
+                         delete it, then fetch again\n"
+                    )
+                );
+                assert_eq!(tree_with_directories(&root), before);
+            }
+        }
+    }
+}
