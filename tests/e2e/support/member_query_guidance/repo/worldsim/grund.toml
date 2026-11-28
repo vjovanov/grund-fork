@@ -1,0 +1,7 @@
+grund_config_version = 2
+
+[schema]
+slug_pattern = "[a-z0-9][a-z0-9-]*"
+
+[schema.kinds.DA]
+folders = ["docs/da"]

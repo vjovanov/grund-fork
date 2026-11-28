@@ -624,8 +624,28 @@ relative to the config root the command resolved against, matching `grund list`
 
 #### 8.1.3 An unknown alias outside a workspace context
 
-Outside a workspace context, a `<path>` argument that resolves member-local included,
-`grund api/FS-login` exits `2` with two stderr lines:
+Outside the loaded workspace context, `grund api/FS-login` keeps member-local
+resolution ([§FS-scan.projects.member](FS-scan.md#projectsmember-a-member-run-loads-the-member)), exits `2`, leaves stdout empty and
+reports `unknown-project`. Bare and explicit `show`, ID-mode `refs` and `fetch`
+share the alias refusal; `fetch` retains its operational-failure classification.
+Batch show carries the same refusal in its existing `unknown-project` record and
+keeps its aggregate exit rule ([§FS-show.3.3](FS-show.md#33-batch-query)).
+
+When configuration verifies both that the selected project is a member of an
+enclosing workspace and that the requested alias names a project there, the
+refusal explains that the alias belongs to that workspace and that this run is
+member-local. It names the workspace root at a location usable from the invocation
+CWD and tells the caller to retry against that root, replacing any explicit member
+`<path>` with the root location. This applies to members with their own config and
+configless members, nested invocation directories and explicit member paths alike.
+The root retry uses workspace scope; the refused lookup does not acquire it.
+
+Guidance verifies membership and alias identity only, not the existence of the ID
+or section. It reads configuration through the canonical membership and alias
+rules, without loading or scanning sibling declarations. An unrelated or
+undecidable ancestor cannot turn the lookup into a new failure. Standalone
+projects, unlisted nested projects and aliases not verified in the enclosing
+workspace retain the generic fallback, with no claim of workspace membership:
 
 ```text
 error: unknown project alias `api`
