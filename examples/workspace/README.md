@@ -82,6 +82,32 @@ enclosing workspace's root project, explains the member relationship, and gives
 ([§FS-workspace.5.1.1](../../docs/functional-spec/FS-workspace.md#511-verified-enclosing-workspace-guidance)). The hint requires verified membership and alias identity;
 it does not promise that a modified target exists when checked from the root.
 
+## Retrying a member-local query at the root
+
+With the updated `grund` on `PATH`, run:
+
+```bash
+bash examples/workspace/member-query.sh
+```
+
+From `repo/packages/api`, `grund web/FS-session --brief` still exits 2 with
+empty stdout. Its note verifies that `web` belongs to the enclosing workspace
+and explains that this run is member-local. Retry with the printed root:
+
+```bash
+grund web/FS-session ../.. --brief
+```
+
+An explicit member selector also keeps member scope. From `repo/`, replace
+`packages/api` in `grund web/FS-session packages/api --brief` with `.` to select
+the workspace root. The script asserts both refusals and root retries against
+the unchanged fixture ([§FS-workspace.8.1.3](../../docs/functional-spec/FS-workspace.md#813-an-unknown-alias-outside-a-workspace-context)).
+
+The same note serves ID-mode `refs`, `fetch` and failed batch-show records.
+Configuration verifies membership and alias identity only; a missing ID or
+section can still fail at the root. No sibling declarations are scanned for the
+hint, and unverified membership or an unknown alias retains the generic refusal.
+
 ## Repairing a missing alias
 
 Run from the grund repository root with the updated `grund` on `PATH`:

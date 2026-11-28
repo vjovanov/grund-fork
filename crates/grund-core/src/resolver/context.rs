@@ -80,6 +80,10 @@ impl WorkspaceProject {
 /// Member-local and standalone runs collapse to one project at index `0` with
 /// `workspace_loaded == false` — every command can route through one struct.
 pub(crate) struct WorkspaceContext {
+    /// §FS-workspace.8.1.3: config-only member guidance, derived once on the first
+    /// alias refusal, so a batch neither repeats expansion nor scans unseen projects.
+    pub(crate) member_query_guidance:
+        std::sync::OnceLock<Option<crate::workspace::MemberQueryGuidance>>,
     pub(crate) projects: Vec<WorkspaceProject>,
     /// Index into `projects` for the "current project" — what `<ID>` (no
     /// alias) resolves against (§FS-workspace.8.9). `None` only for a
@@ -356,6 +360,7 @@ pub(crate) fn load_resolved_workspace_context(
         ));
     }
     Ok(WorkspaceContext {
+        member_query_guidance: std::sync::OnceLock::new(),
         projects,
         current,
         workspace_loaded: true,
@@ -397,6 +402,7 @@ fn single_project_context(
         &findings.walked_dirs,
     ));
     Ok(WorkspaceContext {
+        member_query_guidance: std::sync::OnceLock::new(),
         projects: vec![WorkspaceProject {
             alias: String::new(),
             config,

@@ -43,6 +43,14 @@ Do not rename that alias merely because a member cannot resolve it. The root
 check may still find a missing target; an unknown alias without this verified
 relationship is not evidence of a workspace root alias.
 
+Member-local `show`, ID-mode `refs` and `fetch` still refuse sibling aliases.
+When the note verifies an enclosing workspace, retry against its printed root,
+replacing any explicit member `<path>` with that location. Batch show carries
+the same note in its failed record. This verifies only membership and alias
+identity, not the target ID or section; it does not scan sibling declarations.
+See the [query guide](https://github.com/agent-grounds/grund/blob/main/docs/user-facing/querying.md#recover-a-members-qualified-id)
+and [runnable example](https://github.com/agent-grounds/grund/blob/main/examples/workspace/README.md#retrying-a-member-local-query-at-the-root).
+
 `grund check --full` widens the walk beyond configured source scope. The wider walk stops only at *declared* workspace members, not at any nested `grund.toml`, so a vendored or example project inside the tree is read under this project's grammar; exclude it with the loaded version's source key, or list it in `[workspace] members` if it is one of ours.
 Source exclusions use `[schema.sources] exclude` in v2, `[scan] exclude` in v1.
 

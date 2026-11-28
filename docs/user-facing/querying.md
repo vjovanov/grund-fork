@@ -52,6 +52,32 @@ answer ([§FS-workspace.8.2.2](../functional-spec/FS-workspace.md#822-an-unquali
 The existing [workspace example](../../examples/workspace/README.md) shows the
 same recovery with `api/FS-session` and `web/FS-session`.
 
+A member-local query of a sibling-qualified ID still exits 2.
+When configuration verifies the member and alias, the refusal names the enclosing
+workspace and gives a root location usable from your current directory
+([§FS-workspace.8.1.3](../functional-spec/FS-workspace.md#813-an-unknown-alias-outside-a-workspace-context)):
+
+```console
+$ cd examples/workspace/repo/packages/api
+$ grund web/FS-session --brief
+error: unknown project alias `web`
+note: alias `web` belongs to the enclosing workspace at ../..; this run is member-local — retry the lookup against the workspace root, replacing any explicit member <path> with ../..
+$ grund web/FS-session ../.. --brief
+# FS-session: Web session
+
+The web session model lives in this project. The platform-level coordinator
+is §root/FS-platform.
+```
+
+Use the printed root as the query's path. If the original command selected a
+member explicitly, replace that path: from the workspace root, change
+`grund web/FS-session packages/api --brief` to `grund web/FS-session . --brief`.
+ID-mode `refs` and `fetch` share this guidance; batch show keeps its failed
+`unknown-project` record. The hint verifies the alias, not the existence of the
+ID or section, and does not scan sibling declarations. Unverified membership or
+an unknown alias keeps the generic note. Try the [runnable member query
+walkthrough](../../examples/workspace/README.md#retrying-a-member-local-query-at-the-root).
+
 `show` reads one coordinate; a second operand is a path. If that path is missing,
 the command exits 2 with empty stdout, including at a workspace root
 ([§FS-show.3.5](../functional-spec/FS-show.md#35-the-hint-for-each-failure)):

@@ -65,6 +65,8 @@ mod agreement_manifest;
 mod agreement_materialization;
 #[path = "support/agreement_mutations.rs"]
 mod agreement_mutations;
+#[path = "support/agreement_node_worker.rs"]
+mod agreement_node_worker;
 #[path = "support/agreement_oracles.rs"]
 mod agreement_oracles;
 #[path = "support/agreement_paths.rs"]

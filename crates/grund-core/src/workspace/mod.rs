@@ -57,7 +57,9 @@ pub(crate) use findings::{
 };
 pub(crate) use id_arg::split_qualified_id_arg;
 pub(crate) use imports::{arm_imports, import_diagnostics, missing_import_message};
-pub(crate) use member_guidance::member_root_guidance;
+pub(crate) use member_guidance::{
+    MemberQueryGuidance, member_query_guidance, member_root_guidance,
+};
 pub(crate) use members::AncestorWorkspaces;
 pub(crate) use optional_members::{
     absent_only_workspace_caution, absent_optional_member_subject, absent_optional_member_warnings,

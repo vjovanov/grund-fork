@@ -129,7 +129,6 @@ fn show_retry(tree: &Workspace, cwd: &Path, args: &[&str]) {
 }
 
 #[test]
-#[ignore = "red until #1499 adds verified query guidance; implement removes this"]
 fn configured_member_bare_and_explicit_show_offer_root_retry() {
     let tree = Workspace::new();
     tree.root_success();
@@ -143,7 +142,6 @@ fn configured_member_bare_and_explicit_show_offer_root_retry() {
 }
 
 #[test]
-#[ignore = "red until #1499 adds verified query guidance; implement removes this"]
 fn explicit_member_path_and_nested_cwd_offer_invocation_relative_retry() {
     let tree = Workspace::new();
     let nested = tree.member().join("docs/da");
@@ -153,7 +151,6 @@ fn explicit_member_path_and_nested_cwd_offer_invocation_relative_retry() {
 }
 
 #[test]
-#[ignore = "red until #1499 adds verified query guidance; implement removes this"]
 fn configless_member_offers_the_same_verified_retry() {
     let tree = Workspace::new();
     fs::remove_file(tree.member().join("grund.toml")).unwrap();
@@ -163,7 +160,6 @@ fn configless_member_offers_the_same_verified_retry() {
 }
 
 #[test]
-#[ignore = "red until #1499 adds verified query guidance; implement removes this"]
 fn verified_alias_guidance_does_not_scan_or_promise_target_existence() {
     let tree = Workspace::new();
     fs::write(tree.0.join("tractor1/docs/da/unreadable.md"), [0xff]).unwrap();
@@ -179,7 +175,6 @@ fn verified_alias_guidance_does_not_scan_or_promise_target_existence() {
 }
 
 #[test]
-#[ignore = "red until #1499 adds verified query guidance; implement removes this"]
 fn json_batch_show_preserves_unknown_project_record_with_guidance() {
     let tree = Workspace::new();
     let mut child = Command::new(env!("CARGO_BIN_EXE_grund"))
@@ -212,7 +207,6 @@ fn json_batch_show_preserves_unknown_project_record_with_guidance() {
 }
 
 #[test]
-#[ignore = "red until #1499 adds verified query guidance; implement removes this"]
 fn refs_shares_verified_alias_refusal() {
     let tree = Workspace::new();
     let stderr = refusal(run(&tree.member(), &["refs", ID]));
@@ -225,7 +219,6 @@ fn refs_shares_verified_alias_refusal() {
 }
 
 #[test]
-#[ignore = "red until #1499 adds verified query guidance; implement removes this"]
 fn fetch_shares_verified_alias_refusal() {
     let tree = Workspace::new();
     let stderr = refusal(run(&tree.member(), &["fetch", ID]));

@@ -2,6 +2,9 @@
 // JSON shapes and unwrapped migration entries (§FS-config-migrate.2.2).
 // It shares case_name and the manifest readers with the runner.
 
+#[path = "case_query_note.rs"]
+mod query_note;
+
 /// Whether a case's command selects `--format json`. Decided from the
 /// expanded argument vector rather than the raw `command.args` text, because
 /// the corpus spells the flag both ways: `--format=json` in one argument, or
@@ -234,7 +237,7 @@ fn assert_stderr_is_concise(name: &str, json_case: bool, migration_case: bool, s
             assert_json_diagnostic_is_concise(name, line);
         } else {
             assert!(
-                line.len() <= 180,
+                query_note::prose_len(line).unwrap_or(line.len()) <= 180,
                 "{name}: stderr line is too long for a concise diagnostic: {line}"
             );
         }

@@ -35,7 +35,8 @@ impl WorkspaceContext {
 
     /// The project an alias path names, or the refusal that says why none does: a
     /// missing import first, then an unknown alias (§FS-workspace.8.1,
-    /// §FS-imports.checks.import-missing).
+    /// §FS-imports.checks.import-missing). Member-local refusals share verified
+    /// enclosing-workspace guidance across show, refs and fetch (§FS-workspace.8.1.3).
     pub(crate) fn project_at_alias(&self, name: &str) -> Result<&WorkspaceProject> {
         if let Some(project) = self.project_by_alias(name) {
             return Ok(project);
@@ -46,8 +47,14 @@ impl WorkspaceContext {
         let hint = if self.workspace_loaded {
             format!("known aliases: {}", self.aliases().join(", "))
         } else {
-            "note: workspace aliases are defined in the root grund.toml under [workspace]"
-                .to_string()
+            self.member_query_guidance
+                .get_or_init(|| crate::workspace::member_query_guidance(self.render_config.run()))
+                .as_ref()
+                .and_then(|guidance| guidance.note(name))
+                .unwrap_or_else(|| {
+                    "note: workspace aliases are defined in the root grund.toml under [workspace]"
+                        .to_string()
+                })
         };
         Err(anyhow!(OperationDiagnostic::new(
             "query",
@@ -96,6 +103,7 @@ fn unscanned_context(mut root: ProjectRecords, along: Option<&str>) -> Result<Wo
         }]
     };
     Ok(WorkspaceContext {
+        member_query_guidance: std::sync::OnceLock::new(),
         projects,
         current,
         workspace_loaded: declared,

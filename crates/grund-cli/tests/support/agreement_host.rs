@@ -10,6 +10,7 @@ pub struct Host {
     child: Child,
     input: Option<ChildStdin>,
     output: BufReader<ChildStdout>,
+    node_peer: Option<super::agreement_node_worker::Worker>,
     pub provenance: Value,
 }
 
@@ -49,6 +50,7 @@ impl Host {
             child,
             input,
             output,
+            node_peer: None,
             provenance: Value::Null,
         };
         host.provenance = host.read()["ready"].clone();
@@ -91,6 +93,14 @@ impl Host {
         // §REQ-one-answer.proof.delivery: include IPC and first Node startup;
         // the remote operation timer excludes these costs.
         Self::receipt(surface, request, &response, start.elapsed().as_secs_f64())
+    }
+
+    /// A complete Rust envelope under the actual host's invocation CWD, without
+    /// changing this concurrent test process (§REQ-one-answer.proof.matrix).
+    pub fn node_peer(&mut self, request: Value) -> Value {
+        self.node_peer
+            .get_or_insert_with(super::agreement_node_worker::Worker::new)
+            .call(request)
     }
 
     /// One read-only question put to Python and Node at once: Node answers its

@@ -1,2 +1,2 @@
 error: unknown project alias `beta`
-note: workspace aliases are defined in the root grund.toml under [workspace]
+note: alias `beta` belongs to the enclosing workspace at tests/e2e/cases/workspace-show-qualified-from-member/repo; this run is member-local — retry the lookup against the workspace root, replacing any explicit member <path> with tests/e2e/cases/workspace-show-qualified-from-member/repo

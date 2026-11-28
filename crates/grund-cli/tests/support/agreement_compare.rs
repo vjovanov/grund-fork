@@ -4,9 +4,7 @@
 use super::agreement_host::Host;
 use super::agreement_oracles::{entries, rows, text, without_keys};
 use super::agreement_questions::Question;
-use grund_core::{node_embedding_call, node_request};
 use serde_json::{Value, json};
-use std::path::Path;
 use std::process::Output;
 
 fn equal<T: PartialEq + std::fmt::Debug>(
@@ -47,11 +45,9 @@ pub fn hosts(
     if matches!(question.surface, "show" | "show-batch")
         && !super::agreement_truth::complete_node_show(context, question)
     {
-        let node_rust = node_embedding_call(node_request(
-            question.node_operation,
-            node_req["args"].as_array().unwrap().clone(),
-            Path::new(&cwd),
-        ));
+        // §FS-workspace.8.1.3: invocation-relative remedies require the same
+        // CWD as the real host; only the isolated peer process changes it.
+        let node_rust = host.node_peer(node_req);
         equal("Node complete metadata envelope", &node, &node_rust, errors);
     }
     let common_python = super::agreement_host_projection::from_python(

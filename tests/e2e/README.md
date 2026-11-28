@@ -66,6 +66,9 @@ cap; the first other line ends the block. Ordinary errors and hints retain the
 cap before, beside and after the listing, and aggregate summaries remain
 forbidden throughout. The refusal of an empty string in `[scan] extensions` keeps
 the bytes [§FS-config-migrate.3.1.9](../../docs/functional-spec/FS-config-migrate.md#319-an-empty-string-in-scan-extensions) fixes past the cap, and no other refusal does.
+Verified member-query guidance names the root both as context and as the replacement
+for an explicit member path ([§FS-workspace.8.1.3](../../docs/functional-spec/FS-workspace.md#813-an-unknown-alias-outside-a-workspace-context)). Only those two identical root words are excluded
+from the prose cap; the alias, surrounding prose and every other line retain it.
 Output and final-tree goldens still compare byte-for-byte.
 
 ### Refreshing the goldens
